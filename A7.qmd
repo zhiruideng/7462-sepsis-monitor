@@ -1,0 +1,151 @@
+---
+title: "A7"
+format: html
+editor: visual
+---
+
+**Task 1**
+
+```{r message=F}
+library(tidyverse)
+library(data.table) ## For the fread function
+library(lubridate)
+source("sepsis_monitor_functions.R")
+```
+
+**Task 2**
+
+```{r,warning=F,message=F}
+library(tictoc)
+
+# n=50
+tic()
+test1=makeSepsisDataset(n=50,read_fn = "fread")
+print(paste0("n=50,fn=fdread"))
+toc()
+
+tic()
+test1=makeSepsisDataset(n=50,read_fn = "read_delim")
+print(paste0("n=50,fn=read_delim"))
+toc()
+
+# n=100
+tic()
+test1=makeSepsisDataset(n=100,read_fn = "fread")
+print(paste0("n=100,fn=fdread"))
+toc()
+
+tic()
+test1=makeSepsisDataset(n=100,read_fn = "read_delim")
+print(paste0("n=100,fn=read_delim"))
+toc()
+
+# n=500
+tic()
+test1=makeSepsisDataset(n=500,read_fn = "fread")
+print(paste0("n=500,fn=fdread"))
+toc()
+
+tic()
+test1=makeSepsisDataset(n=500,read_fn = "read_delim")
+print(paste0("n=500,fn=read_delim"))
+toc()
+
+```
+
+**Task 3**
+
+```{r message=F}
+library(googledrive)
+df <- makeSepsisDataset()
+
+# We have to write the file to disk first, then upload it
+df %>% write_csv("sepsis_data_temp.csv")
+
+# Uploading happens here
+sepsis_file <- drive_put(media = "sepsis_data_temp.csv", 
+          path = "https://drive.google.com/drive/folders/1tPCDKc-Oe_129trh2D33mvY1vKd-1ZPd",
+          name = "sepsis_data.csv")
+
+# Set the file permissions so anyone can download this file.
+sepsis_file %>% drive_share_anyone()
+
+```
+
+```{r message=F}
+drive_deauth()
+file_link <- "https://drive.google.com/file/d/14oM0-y0gwLSlny1Nl7_MZ39WJReLRoow"
+## Data_all
+new_data <- updateData(file_link)
+## Data_most_recent
+most_recent_data <- new_data %>%
+  group_by(PatientID) %>%
+  filter(obsTime == max(obsTime))
+```
+
+**Task 4**
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(knitr)
+
+Sys.time()
+
+dfnew <- df %>%
+  subset(SepsisLabel==1)
+
+n = length(unique(dfnew$PatientID))
+res = data.frame()
+
+for(id in unique(dfnew$PatientID)){
+  dfsub=subset(dfnew,dfnew$PatientID==id)
+  res=rbind(res,dfsub[NROW(dfsub),])
+}
+
+kable(res)
+
+```
+
+```{r warning=F}
+dfnew %>%
+  ggplot(aes(y=HR,x=(obsTime),color=PatientID))+
+  geom_point() + 
+  geom_line() + 
+  labs(title="Plot of Heart Rate by Time in ICU")
+
+dfnew %>%
+  ggplot(aes(y=Temp,x=(obsTime),color=PatientID))+
+  geom_point() + 
+  geom_line() + 
+  labs(title="Plot of Temperature by Time in ICU")
+
+dfnew %>%
+  ggplot(aes(y=Resp,x=(obsTime),color=PatientID))+
+  geom_point() + 
+  geom_line() + 
+  labs(title="Plot of Respiratory Rate by Time in ICU")
+
+most_recent_data
+
+```
+
+```{r message=F}
+get_observation_data <- function(data, n, column_suffix) {
+  data %>%
+    group_by(PatientID) %>%
+    slice_max(order_by = obsTime, n = n) %>%
+    select(-c(ICULOS, SepsisLabel, obsTime)) %>%
+    rename_at(vars(HR, Temp, Resp),
+              list(~paste0(., "_", column_suffix)))
+}
+last_obs <- get_observation_data(new_data, 1, "last")
+penultimate_obs <- get_observation_data(new_data, 2, "penult")
+joined_data <- full_join(last_obs, penultimate_obs) %>%
+  transmute(PatientID,
+            `Temperature change` = Temp_last - Temp_penult,
+            `Heart rate change` = HR_last - HR_penult,
+            `Respiratory rate change` = Resp_last - Resp_penult)
+kable(joined_data, caption = "Most Recent Changes of Patients in Vital Stats")
+
+```
