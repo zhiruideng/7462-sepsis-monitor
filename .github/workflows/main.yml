@@ -5,7 +5,7 @@ on:
     branches: main
   workflow_dispatch:
 
-name: Render Report
+name: Hourly Report
 
 jobs:
   build-deploy:
