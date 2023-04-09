@@ -8,12 +8,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-deploy:
+  hourly-job:
     runs-on: ubuntu-latest
-  
-    permissions:
-        contents: write
-        
     steps:
       - name: Check out repository
         uses: actions/checkout@v3
@@ -38,19 +34,21 @@ jobs:
                any::googledrive
                any::data.table
                any::tidyr
+               any::gt
                any::tictoc
+               any::plotly
                any::tidyverse
  
       - name: Checkout repository
         uses: actions/checkout@v2
-
-
+        with:
+          token: ${{ secrets.GH_PAT }}
 
       - name: Render document
         uses: quarto-dev/quarto-actions/render@v2
         with:
           to: html
-          path: HW7.qmd
+          path: sepsis_monitoring_report.qmd
       - name: Setup git config
         run: |
           git config user.name "GitHub Actions Bot"
